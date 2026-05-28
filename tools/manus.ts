@@ -73,8 +73,8 @@ function pollTimeout(): number {
   return parseInt(process.env.MANUS_POLL_TIMEOUT ?? "600000", 10)
 }
 
-function agentProfile(): string {
-  return process.env.MANUS_AGENT_PROFILE ?? "standard"
+function agentProfile(profile?: string): string {
+  return profile ?? process.env.MANUS_AGENT_PROFILE ?? "manus-1.6"
 }
 
 function sleep(ms: number): Promise<void> {
@@ -197,6 +197,12 @@ export const run = tool({
       .describe(
         "Optional Manus project ID to attach this task to (for shared instructions / persistent persona).",
       ),
+    agent_profile: tool.schema
+      .string()
+      .optional()
+      .describe(
+        "Manus agent profile. Valid values: manus-1.6, manus-1.6-lite, manus-1.6-max. Defaults to manus-1.6 or MANUS_AGENT_PROFILE env var.",
+      ),
   },
   async execute(args, ctx) {
     ctx.metadata({ title: `Manus: ${args.task.slice(0, 60)}${args.task.length > 60 ? "…" : ""}` })
@@ -207,7 +213,7 @@ export const run = tool({
         role: "user",
         content: args.task,
       },
-      agent_profile: agentProfile(),
+      agent_profile: agentProfile(args.agent_profile),
       ...(args.project_id ? { project_id: args.project_id } : {}),
     })
 

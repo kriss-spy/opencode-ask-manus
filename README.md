@@ -76,7 +76,7 @@ The plugin registers a `manus` subagent scoped to only the Manus tools. Add this
 | `MANUS_API_URL` | `https://api.manus.ai/v2` | Override the API base URL |
 | `MANUS_POLL_INTERVAL` | `4000` | Polling interval in ms |
 | `MANUS_POLL_TIMEOUT` | `600000` | Max wait time in ms (10 min) |
-| `MANUS_AGENT_PROFILE` | `standard` | Agent profile: `standard`, `lite`, or `max` |
+| `MANUS_AGENT_PROFILE` | `manus-1.6` | Agent profile: `manus-1.6`, `manus-1.6-lite`, or `manus-1.6-max` |
 
 ## Architecture
 
