@@ -210,7 +210,8 @@ export const run = tool({
     // 1. Create task
     const created = await manusPost<CreateTaskResponse>("task.create", {
       message: {
-        content: [{ type: "text", text: args.task }],
+        role: "user",
+        content: args.task,
       },
       agent_profile: agentProfile(args.agent_profile),
       ...(args.project_id ? { project_id: args.project_id } : {}),
@@ -276,7 +277,7 @@ export const send = tool({
     // Send message to existing task
     await manusPost("task.sendMessage", {
       task_id: args.task_id,
-      message: { content: [{ type: "text", text: args.message }] },
+      message: { role: "user", content: args.message },
     })
 
     // Poll until done
