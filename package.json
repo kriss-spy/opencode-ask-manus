@@ -1,13 +1,31 @@
 {
   "name": "opencode-ask-manus",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "OpenCode plugin that wraps the Manus API — delegate complex tasks to an AI agent with its own tools, sandbox, and web access.",
   "keywords": ["opencode", "plugin", "manus", "ai-agent"],
   "license": "MIT",
   "author": "",
-  "main": "index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist/",
+    "README.md",
+    "AGENTS.md"
+  ],
   "exports": {
-    ".": "./index.ts"
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": "^1.0.0"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "^1.15.11",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0"
   }
 }
