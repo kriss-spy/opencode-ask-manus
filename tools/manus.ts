@@ -82,7 +82,14 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function httpRequest(method: string, path: string, body?: unknown): any {
+interface ApiResponse<T> {
+  ok: boolean
+  error?: { code: string; message: string }
+  [key: string]: unknown
+  data?: T
+}
+
+function httpRequest<T>(method: string, path: string, body?: unknown): T {
   const url = `${apiUrl()}/${path}`
   const key = apiKey()
   const args = [
@@ -103,19 +110,18 @@ function httpRequest(method: string, path: string, body?: unknown): any {
   const lines = (result.stdout as string).trim().split("\n")
   const status = parseInt(lines.pop()!, 10)
   const responseBody = lines.join("\n")
-  if (status < 200 || status >= 300) {
-    throw new Error(`Manus API error ${status} on ${method} ${url} (key: ${key.slice(0, 8)}...): ${responseBody}`)
-  }
-  return JSON.parse(responseBody)
+  if (status === 0) throw new Error(`curl failed to connect to ${url} (key: ${key.slice(0, 8)}...)`)
+  const parsed = JSON.parse(responseBody) as T
+  return parsed
 }
 
 async function manusPost<T>(path: string, body: unknown): Promise<T> {
-  return httpRequest("POST", path, body) as T
+  return httpRequest<T>("POST", path, body)
 }
 
 async function manusGet<T>(path: string, params: Record<string, string>): Promise<T> {
   const qs = new URLSearchParams(params).toString()
-  return httpRequest("GET", `${path}?${qs}`) as T
+  return httpRequest<T>("GET", `${path}?${qs}`)
 }
 
 /**
@@ -128,6 +134,8 @@ async function pollUntilDone(
 ): Promise<{ status: string; messages: ManusMessage[] }> {
   const deadline = Date.now() + pollTimeout()
   let seenActive = false
+  let notFoundRetries = 0
+  const maxNotFoundRetries = 8
 
   while (true) {
     if (signal.aborted) throw new Error("Tool call was aborted.")
@@ -138,6 +146,13 @@ async function pollUntilDone(
       order: "desc",
       limit: "10",
     })
+
+    if (data.error?.code === "not_found" && notFoundRetries < maxNotFoundRetries) {
+      notFoundRetries++
+      const backoff = Math.min(1000 * Math.pow(2, notFoundRetries - 1), 8000)
+      await sleep(backoff)
+      continue
+    }
 
     if (!data.ok) throw new Error(`task.listMessages failed: ${data.error?.message ?? "unknown error"}`)
 
@@ -164,22 +179,30 @@ async function pollUntilDone(
  * Fetch the full message list and extract the last assistant message text.
  */
 async function fetchResult(taskId: string): Promise<string> {
-  const data = await manusGet<ListMessagesResponse>("task.listMessages", {
-    task_id: taskId,
-    order: "desc",
-    limit: "100",
-  })
+  let retries = 0
+  while (true) {
+    const data = await manusGet<ListMessagesResponse>("task.listMessages", {
+      task_id: taskId,
+      order: "desc",
+      limit: "100",
+    })
 
-  if (!data.ok) throw new Error(`task.listMessages failed: ${data.error?.message ?? "unknown error"}`)
-
-  // Walk messages newest-first (order=desc) to find the last assistant message
-  for (const msg of data.messages) {
-    if (msg.type === "assistant_message" && msg.assistant_message?.content) {
-      return msg.assistant_message.content
+    if (data.error?.code === "not_found" && retries < 4) {
+      retries++
+      await sleep(Math.min(1000 * Math.pow(2, retries - 1), 4000))
+      continue
     }
-  }
 
-  return "(Manus task completed but returned no assistant message.)"
+    if (!data.ok) throw new Error(`task.listMessages failed: ${data.error?.message ?? "unknown error"}`)
+
+    for (const msg of data.messages) {
+      if (msg.type === "assistant_message" && msg.assistant_message?.content) {
+        return msg.assistant_message.content
+      }
+    }
+
+    return "(Manus task completed but returned no assistant message.)"
+  }
 }
 
 // ---------------------------------------------------------------------------

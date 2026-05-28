@@ -1,6 +1,6 @@
 {
   "name": "opencode-ask-manus",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "type": "module",
   "description": "OpenCode plugin that wraps the Manus API — delegate complex tasks to an AI agent with its own tools, sandbox, and web access.",
   "keywords": ["opencode", "plugin", "manus", "ai-agent"],
