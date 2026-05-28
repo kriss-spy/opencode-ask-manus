@@ -82,29 +82,33 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function manusPost<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${apiUrl()}/${path}`, {
+  const url = `${apiUrl()}/${path}`
+  const key = apiKey()
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-manus-api-key": apiKey(),
+      "x-manus-api-key": key,
     },
     body: JSON.stringify(body),
   })
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText)
-    throw new Error(`Manus API error ${res.status}: ${text}`)
+    throw new Error(`Manus API error ${res.status} on POST ${url} (key: ${key.slice(0, 8)}...): ${text}`)
   }
   return res.json() as Promise<T>
 }
 
 async function manusGet<T>(path: string, params: Record<string, string>): Promise<T> {
   const qs = new URLSearchParams(params).toString()
-  const res = await fetch(`${apiUrl()}/${path}?${qs}`, {
-    headers: { "x-manus-api-key": apiKey() },
+  const url = `${apiUrl()}/${path}?${qs}`
+  const key = apiKey()
+  const res = await fetch(url, {
+    headers: { "x-manus-api-key": key },
   })
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText)
-    throw new Error(`Manus API error ${res.status}: ${text}`)
+    throw new Error(`Manus API error ${res.status} on GET ${url.split("?")[0]} (key: ${key.slice(0, 8)}...): ${text}`)
   }
   return res.json() as Promise<T>
 }
