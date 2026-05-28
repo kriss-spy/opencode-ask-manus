@@ -1,0 +1,33 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  // ── MCP server registration ───────────────────────────────────────────────
+  "mcp": {
+    "manus": {
+      "type": "local",
+      "command": ["npx", "tsx", "/path/to/manus-mcp-server.ts"],
+      "environment": {
+        "MANUS_API_KEY": "YOUR_KEY_HERE"
+      },
+      "enabled": true
+    }
+  },
+
+  // ── Scope MCP tools to a dedicated subagent ───────────────────────────────
+  // Disable globally so only the "manus" subagent can call them.
+  "tools": {
+    "manus_*": false
+  },
+
+  "agent": {
+    "manus": {
+      "mode": "subagent",
+      "description": "Delegates tasks to Manus, an AI agent with its own tools and sandbox. Use for web browsing, code execution, file management, or any multi-step task that benefits from Manus's full agentic capabilities.",
+      "permission": {
+        "*": "deny",
+        "manus_run": "allow",
+        "manus_send": "allow"
+      }
+    }
+  }
+}
