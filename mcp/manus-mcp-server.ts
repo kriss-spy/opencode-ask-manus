@@ -189,7 +189,7 @@ server.tool(
   },
   async ({ task, project_id, agent_profile }) => {
     const created = await manusPost<CreateTaskResponse>("task.create", {
-      message: { role: "user", content: task },
+      message: { content: [{ type: "text", text: task }] },
       agent_profile: agentProfile(agent_profile),
       ...(project_id ? { project_id } : {}),
     })
@@ -247,7 +247,7 @@ server.tool(
   async ({ task_id, message }) => {
     await manusPost("task.sendMessage", {
       task_id,
-      message: { role: "user", content: message },
+      message: { content: [{ type: "text", text: message }] },
     })
 
     const status = await pollUntilDone(task_id)
