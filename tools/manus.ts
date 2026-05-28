@@ -16,6 +16,7 @@
  */
 
 import { tool } from "@opencode-ai/plugin"
+import { spawnSync } from "node:child_process"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -81,36 +82,40 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function manusPost<T>(path: string, body: unknown): Promise<T> {
+function httpRequest(method: string, path: string, body?: unknown): any {
   const url = `${apiUrl()}/${path}`
   const key = apiKey()
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-manus-api-key": key,
-    },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText)
-    throw new Error(`Manus API error ${res.status} on POST ${url} (key: ${key.slice(0, 8)}...): ${text}`)
+  const args = [
+    "-s",
+    "-w",
+    "\n%{http_code}",
+    "-X",
+    method,
+    url,
+    "-H",
+    "Content-Type: application/json",
+    "-H",
+    `x-manus-api-key: ${key}`,
+  ]
+  if (body) args.push("-d", JSON.stringify(body))
+  const result = spawnSync("curl", args, { encoding: "utf-8", timeout: 30000 })
+  if (result.error) throw new Error(`curl failed: ${result.error.message}`)
+  const lines = (result.stdout as string).trim().split("\n")
+  const status = parseInt(lines.pop()!, 10)
+  const responseBody = lines.join("\n")
+  if (status < 200 || status >= 300) {
+    throw new Error(`Manus API error ${status} on ${method} ${url} (key: ${key.slice(0, 8)}...): ${responseBody}`)
   }
-  return res.json() as Promise<T>
+  return JSON.parse(responseBody)
+}
+
+async function manusPost<T>(path: string, body: unknown): Promise<T> {
+  return httpRequest("POST", path, body) as T
 }
 
 async function manusGet<T>(path: string, params: Record<string, string>): Promise<T> {
   const qs = new URLSearchParams(params).toString()
-  const url = `${apiUrl()}/${path}?${qs}`
-  const key = apiKey()
-  const res = await fetch(url, {
-    headers: { "x-manus-api-key": key },
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText)
-    throw new Error(`Manus API error ${res.status} on GET ${url.split("?")[0]} (key: ${key.slice(0, 8)}...): ${text}`)
-  }
-  return res.json() as Promise<T>
+  return httpRequest("GET", `${path}?${qs}`) as T
 }
 
 /**
