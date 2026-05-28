@@ -89,13 +89,15 @@ interface ApiResponse<T> {
   data?: T
 }
 
-function httpRequest<T>(method: string, path: string, body?: unknown): T {
+async function httpRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
   const url = `${apiUrl()}/${path}`
   const key = apiKey()
   const args = [
     "-s",
     "-w",
     "\n%{http_code}",
+    "--connect-timeout",
+    "10",
     "-X",
     method,
     url,
@@ -105,23 +107,36 @@ function httpRequest<T>(method: string, path: string, body?: unknown): T {
     `x-manus-api-key: ${key}`,
   ]
   if (body) args.push("-d", JSON.stringify(body))
-  const result = spawnSync("curl", args, { encoding: "utf-8", timeout: 30000 })
-  if (result.error) throw new Error(`curl failed: ${result.error.message}`)
-  const lines = (result.stdout as string).trim().split("\n")
-  const status = parseInt(lines.pop()!, 10)
-  const responseBody = lines.join("\n")
-  if (status === 0) throw new Error(`curl failed to connect to ${url} (key: ${key.slice(0, 8)}...)`)
-  const parsed = JSON.parse(responseBody) as T
-  return parsed
+
+  let lastErr: Error | null = null
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await sleep(1000 * Math.pow(2, attempt - 1))
+
+    const result = spawnSync("curl", args, { encoding: "utf-8", timeout: 30000 })
+    if (result.error) { lastErr = new Error(`curl failed: ${result.error.message}`); continue }
+
+    const stdout = result.stdout as string
+    if (stdout.length === 0) { lastErr = new Error(`curl returned empty response`); continue }
+
+    const lines = stdout.trim().split("\n")
+    const status = parseInt(lines.pop()!, 10)
+    const responseBody = lines.join("\n")
+
+    if (status === 0) { lastErr = new Error(`curl failed to connect to ${url}`); continue }
+
+    return JSON.parse(responseBody) as T
+  }
+
+  throw lastErr ?? new Error(`Request to ${method} ${url} failed after 3 attempts (key: ${key.slice(0, 8)}...)`)
 }
 
 async function manusPost<T>(path: string, body: unknown): Promise<T> {
-  return httpRequest<T>("POST", path, body)
+  return await httpRequest<T>("POST", path, body)
 }
 
 async function manusGet<T>(path: string, params: Record<string, string>): Promise<T> {
   const qs = new URLSearchParams(params).toString()
-  return httpRequest<T>("GET", `${path}?${qs}`)
+  return await httpRequest<T>("GET", `${path}?${qs}`)
 }
 
 /**
